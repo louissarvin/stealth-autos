@@ -1,0 +1,21 @@
+[package]
+name = "stealth-address-aptos"
+version = "1.0.0"
+authors = ["PIVY Team"]
+license = "MIT"
+
+[addresses]
+pivy_stealth = "_"
+
+[dev-addresses]
+pivy_stealth = "0xc0d64666b049e1412b7bcd74d0d20b34a10d12f76555843be78f1bb5bd126ee1"
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "testnet"
+subdir = "aptos-framework"
+
+[dependencies.AptosStdlib]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "testnet"
+subdir = "aptos-stdlib"
