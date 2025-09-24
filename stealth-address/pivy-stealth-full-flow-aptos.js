@@ -38,13 +38,13 @@ const CONFIG = {
   FN_WITHDRAW: 'withdraw',
 
   /** Ed25519 accounts (user's normal wallets) */
-  PAYER_ED25519_PRIVATE_KEY: "0xYourPrivateKey1ToFundedStealthAddress", // Your funded account
-  RECEIVER_ED25519_PRIVATE_KEY: "0xYourPrivateKey2ToWithdrawFundsFromStealthAddress", // Your destination account
+  PAYER_ED25519_PRIVATE_KEY: "0xYourPrivateKey1ToFundStealthAddress", // Your funded account
+  RECEIVER_ED25519_PRIVATE_KEY: "0xYourPrivateKey2ToReceiveStealthPayments", // Your destination account
 
   /** Coin type and amounts */
   COIN_TYPE: '0x1::aptos_coin::AptosCoin',
-  PAY_AMOUNT_OCTAS: 50_000_000n, // Amount to pay to stealth address 
-  WITHDRAW_AMOUNT_OCTAS: 40_000_000n, // Amount to withdraw to Ed25519 destination
+  PAY_AMOUNT_OCTAS: 100_000_000n, // 1 APT
+  WITHDRAW_AMOUNT_OCTAS: 50_000_000n, // 0.5 APT
 
   /** Demo data */
   LABEL_STR: 'PIVY_HYBRID_DEMO_APTOS_V1',
@@ -124,7 +124,8 @@ const pad32 = (u8) => {
   const { privateKey: ephPriv, publicKeyB58: ephPubB58 } = ephemeral;
 
   // Ed25519 payer uses secp256k1 crypto to generate stealth address
-  const stealthPub = await pivy.deriveStealthPub(metaSpendPubB58, metaViewPubB58, ephPriv, metaSpendPriv);
+  // Ed25519 payer uses secp256k1 crypto to generate stealth address (SECURE - no private keys!)
+  const stealthPub = await pivy.deriveStealthPub(metaSpendPubB58, metaViewPubB58, ephPriv);
   
   // Encrypt data for receiver
   const encryptedMemo = await pivy.encryptEphemeralPrivKey(ephPriv, metaViewPubB58);

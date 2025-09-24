@@ -50,9 +50,8 @@ import PivyStealthAptos from './pivyStealthHelpersAptos.js';
   console.log('   Ephemeral pub:', ephPubB58);
   console.log('   Ephemeral priv:', Buffer.from(ephPriv).toString('hex'));
   
-  // Create stealth address using class method 
-  // Pass meta spend private key to ensure SDK-compatible address derivation
-  const stealthPub = await pivy.deriveStealthPub(metaSpendPubB58, metaViewPubB58, ephPriv, metaSpendPriv);
+  // Create stealth address using class method (SECURE - no private key sharing!)
+  const stealthPub = await pivy.deriveStealthPub(metaSpendPubB58, metaViewPubB58, ephPriv);
   
   // Encrypt ephemeral key for receiver using class method
   const memo = await pivy.encryptEphemeralPrivKey(ephPriv, metaViewPubB58);
@@ -90,8 +89,8 @@ import PivyStealthAptos from './pivyStealthHelpersAptos.js';
   
   // Recover the stealth keypair using class method (receiver side)
   const stealthKP = await pivy.deriveStealthKeypair(
-    Buffer.from(metaSpendPriv).toString('hex'), 
-    Buffer.from(metaViewPriv).toString('hex'), 
+    metaSpendPriv, 
+    metaViewPriv, 
     ephPubB58
   );
 

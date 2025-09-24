@@ -146,8 +146,9 @@ export class PivyStealthAptos {
   /**
    * Converts secp256k1 public key point to Aptos address format.
    * 
-   * Aptos addresses are derived using SHA3-256 hash of public key + scheme identifier,
-   * where 0x00 indicates single signature scheme.
+   * Uses the exact Aptos SDK format discovered through debugging:
+   * SDK format: 0x01 | 0x41 | uncompressed_pubkey | 0x02
+   * Where 0x01 = key type prefix, 0x41 = length (65), 0x02 = auth scheme
    * 
    * @param {Uint8Array} point - 33-byte compressed secp256k1 public key
    * @returns {string} Aptos address with 0x prefix
@@ -156,20 +157,29 @@ export class PivyStealthAptos {
    * const pivy = new PivyStealthAptos();
    * const pubKey = secp.getPublicKey(privateKey, true);
    * const address = pivy.secp256k1PointToAptosAddress(pubKey);
-   * // Returns: "0x1a2b3c..."
+   * // Returns: "0x1a2b3c..." (matches SDK exactly)
    */
   secp256k1PointToAptosAddress(point) {
-    // Aptos uses uncompressed public key for address derivation
+    // STEP 1: Convert compressed (33 bytes) to uncompressed (65 bytes)
     const uncompressedPubKey = secp.Point.fromHex(point).toRawBytes(false);
     
-    // Append single signature scheme identifier
-    const pubKeyWithScheme = new Uint8Array(uncompressedPubKey.length + 1);
-    pubKeyWithScheme.set(uncompressedPubKey);
-    pubKeyWithScheme[uncompressedPubKey.length] = 0x00; // Single signature scheme
+    // STEP 2: Match exact SDK format discovered through debugging
+    const keyTypePrefix = new Uint8Array([0x01]);           // Secp256k1 key type
+    const keyLength = new Uint8Array([0x41]);              // Length = 65 (0x41)
+    const authScheme = new Uint8Array([0x02]);             // Single key scheme
     
-    // Hash with SHA3-256
-    const hash = sha3_256(pubKeyWithScheme);
-    return '0x' + Buffer.from(hash).toString('hex');
+    // STEP 3: Concatenate: prefix + length + pubkey + scheme (matches SDK exactly)
+    const data = new Uint8Array(1 + 1 + uncompressedPubKey.length + 1);
+    data.set(keyTypePrefix, 0);
+    data.set(keyLength, 1);
+    data.set(uncompressedPubKey, 2);
+    data.set(authScheme, 2 + uncompressedPubKey.length);
+    
+    // STEP 4: Apply SHA3-256 hash (same as SDK)
+    const authKey = sha3_256(data);
+    
+    // STEP 5: Convert to hex address
+    return '0x' + Buffer.from(authKey).toString('hex');
   }
 
   /*──────────────────────────────────────────────────────────────────*/
@@ -341,10 +351,11 @@ export class PivyStealthAptos {
    * key and meta view public key, ensuring only the receiver can derive
    * the corresponding private key.
    * 
+   * SECURITY: This function only uses PUBLIC keys - no private keys from receiver!
+   * 
    * @param {string} metaSpendPubB58 - Base58-encoded meta spend public key
    * @param {string} metaViewPubB58 - Base58-encoded meta view public key  
    * @param {string|Uint8Array} ephPriv32 - 32-byte ephemeral private key
-   * @param {string|Uint8Array} metaSpendPriv - Optional meta spend private key for SDK address derivation
    * @returns {Promise<Object>} Stealth address information
    * @returns {string} returns.stealthPubKeyB58 - Base58-encoded stealth public key
    * @returns {string} returns.stealthAptosAddress - Aptos address format
@@ -360,7 +371,7 @@ export class PivyStealthAptos {
    * );
    * console.log("Send funds to:", stealth.stealthAptosAddress);
    */
-  async deriveStealthPub(metaSpendPubB58, metaViewPubB58, ephPriv32, metaSpendPriv = null) {
+  async deriveStealthPub(metaSpendPubB58, metaViewPubB58, ephPriv32) {
     // Calculate shared secret and derive tweak
     const shared = secp.getSharedSecret(this.to32u8(ephPriv32), this.to32u8(metaViewPubB58), true);
     const tweak = sha256(shared.slice(1));
@@ -376,29 +387,8 @@ export class PivyStealthAptos {
     // Convert to compressed bytes
     const stealthPubKeyBytes = stealthPoint.toRawBytes(true);
     
-    let stealthAptosAddress;
-    
-    if (metaSpendPriv) {
-      // ✅ If we have the meta spend private key, derive stealth private key and use SDK
-      const metaSpendPrivBytes = this.to32u8(metaSpendPriv);
-      const metaSpendScalar = BigInt('0x' + Buffer.from(metaSpendPrivBytes).toString('hex')) % secp.CURVE.n;
-      const stealthPrivScalar = (metaSpendScalar + tweakScalar) % secp.CURVE.n;
-      
-      // Convert scalar back to 32-byte private key
-      const stealthPrivBytes = new Uint8Array(32);
-      const scalarHex = stealthPrivScalar.toString(16).padStart(64, '0');
-      for (let i = 0; i < 32; i++) {
-        stealthPrivBytes[i] = parseInt(scalarHex.slice(i * 2, i * 2 + 2), 16);
-      }
-      
-      // ✅ Use SDK for address derivation - ensures compatibility with receiver
-      const tempPrivateKey = new Secp256k1PrivateKey(stealthPrivBytes);
-      const tempAccount = Account.fromPrivateKey({ privateKey: tempPrivateKey });
-      stealthAptosAddress = tempAccount.accountAddress.toString();
-    } else {
-      // Fallback to custom implementation for payer-only scenarios
-      stealthAptosAddress = this.secp256k1PointToAptosAddress(stealthPubKeyBytes);
-    }
+    // ✅ Use our fixed custom derivation (should now match SDK exactly)
+    const stealthAptosAddress = this.secp256k1PointToAptosAddress(stealthPubKeyBytes);
     
     return {
       stealthPubKeyB58: bs58.encode(stealthPubKeyBytes),
