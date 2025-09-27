@@ -1,19 +1,17 @@
 /**
- * PIVY Universal Stealth Address Flow for Aptos - Ed25519 + secp256k1 Crypto
+ * PIVY Stealth Address Hybrid Flow for Aptos - Ed25519 + secp256k1 Crypto
  * 
- * This script demonstrates the universal stealth address flow:
+ * This script demonstrates the optimal stealth address flow:
  * 1. Ed25519 payer account (user's normal funded wallet)
  * 2. Generate secp256k1 meta keys for receiver (one-time setup)
  * 3. Ed25519 payer uses secp256k1 crypto to generate stealth address
- * 4. Ed25519 payer sends ANY TOKEN (Coin/FungibleAsset) to stealth address
+ * 4. Ed25519 payer sends APT to stealth address
  * 5. secp256k1 receiver derives stealth private key
  * 6. secp256k1 receiver withdraws to Ed25519 final destination
  * 
- * Universal Benefits:
- * - Supports both CoinType (APT) and FungibleAsset (USDC) standards
- * - Auto-detects token type and uses correct functions
- * - Smart gas management (native for Coins, sponsored for FAs)
+ * Benefits:
  * - Users keep their existing Ed25519 wallets
+ * - No need to fund additional secp256k1 accounts
  * - Clean separation of account management and cryptography
  */
 
@@ -22,7 +20,6 @@ import bs58 from 'bs58';
 
 // Import PIVY stealth functionality using class-based approach
 import PivyStealthAptos from './pivyStealthHelpersAptos.js';
-import { PIVYUniversalClient } from './pivyUniversalClient.js';
 
 /*──────────────────────────────────────────────────────────────────*/
 /*  Configuration                                                   */
@@ -32,53 +29,27 @@ const CONFIG = {
   /** Network configuration - Using TESTNET */
   NETWORK: Network.TESTNET,
 
-  /** PIVY Stealth Smart Contract Configuration */
-  PIVY_STEALTH: {
-    packageId: '0xc0d64666b049e1412b7bcd74d0d20b34a10d12f76555843be78f1bb5bd126ee1',
-    moduleName: 'pivy_stealth',
-    // Direct payment functions (Aptos-to-Aptos)
-    fnPay: 'pay',
-    fnPayFa: 'pay_fa',
-    // Withdrawal functions
-    fnWithdraw: 'withdraw',
-    fnWithdrawFa: 'withdraw_fa',
-  },
+  /** Package ID containing the stealth payment module */
+  PACKAGE_ID: '0xc0d64666b049e1412b7bcd74d0d20b34a10d12f76555843be78f1bb5bd126ee1',
+
+  /** Module and function names */
+  MODULE_NAME: 'pivy_stealth',
+  FN_PAY: 'pay',
+  FN_WITHDRAW: 'withdraw',
 
   /** Ed25519 accounts (user's normal wallets) */
   PAYER_ED25519_PRIVATE_KEY: "0xYourPrivateKey1ToFundStealthAddress", // Your funded account
   RECEIVER_ED25519_PRIVATE_KEY: "0xYourPrivateKey2ToReceiveStealthPayments", // Your destination account
 
-  /** Universal Token Configuration - Dual Testing Setup */
-  /*
-   * DUAL TESTING INSTRUCTIONS:
-   * 
-   * TEST 1 - APT (CoinType): 
-   * - Stealth address receives native APT and can pay its own gas
-   * - Uses pay<T>() and withdraw<T>() functions
-   * - No sponsored transaction needed
-   * 
-   * TEST 2 - USDC (FungibleAsset):
-   * - Stealth address receives USDC but has 0 APT for gas
-   * - Uses pay_fa() and withdraw_fa() functions  
-   * - Requires sponsored transaction for withdrawal
-   * 
-   * To switch between tests, comment/uncomment the appropriate configuration below:
-   */
-  
-  // TEST 1 - APT (CoinType): stealth gets native APT, can pay own gas
-  // ASSET_TYPE: '0x1::aptos_coin::AptosCoin',
-  // PAY_AMOUNT: 100_000_000n, // 1 APT (8 decimals)
-  // WITHDRAW_AMOUNT: 50_000_000n, // 0.5 APT
-  
-  // TEST 2 - USDC (FungibleAsset): stealth gets USDC, needs sponsored withdrawal
-  ASSET_TYPE: '0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832', // USDC FA
-  PAY_AMOUNT: 1000000n, // 1 USDC (6 decimals)
-  WITHDRAW_AMOUNT: 1000000n, // 1 USDC
+  /** Coin type and amounts */
+  COIN_TYPE: '0x1::aptos_coin::AptosCoin',
+  PAY_AMOUNT_OCTAS: 100_000_000n, // 1 APT
+  WITHDRAW_AMOUNT_OCTAS: 50_000_000n, // 0.5 APT
 
   /** Demo data */
-  LABEL_STR: 'PIVY_UNIVERSAL_DEMO_APTOS_V1',
-  PAYLOAD_STR: 'Universal flow: Ed25519 wallets + secp256k1 crypto + auto-detection!',
-  PRIVATE_NOTE: '🔗 Universal Flow Demo! Ed25519 payer → secp256k1 stealth → Ed25519 receiver. Works with any token!',
+  LABEL_STR: 'PIVY_HYBRID_DEMO_APTOS_V1',
+  PAYLOAD_STR: 'Hybrid flow: Ed25519 wallets + secp256k1 crypto!',
+  PRIVATE_NOTE: '🔗 Hybrid Flow Demo! Ed25519 payer → secp256k1 stealth → Ed25519 receiver. Best of both worlds!',
 };
 
 /*──────────────────────────────────────────────────────────────────*/
@@ -98,9 +69,8 @@ const pad32 = (u8) => {
 /*──────────────────────────────────────────────────────────────────*/
 
 (async () => {
-  console.log('🔗 PIVY Universal Stealth Address Flow Demo for Aptos');
-  console.log('   Ed25519 User Wallets + secp256k1 Stealth Cryptography');
-  console.log('   🌟 Universal Token Support: CoinType ⟷ FungibleAsset Auto-Detection\n');
+  console.log('🔗 PIVY Stealth Address Hybrid Flow Demo for Aptos');
+  console.log('   Ed25519 User Wallets + secp256k1 Stealth Cryptography\\n');
 
   /*────────────────────────────────────────────────────────────────*/
   /*  Step 1: Setup Ed25519 User Accounts + secp256k1 Crypto        */
@@ -108,13 +78,6 @@ const pad32 = (u8) => {
 
   // Initialize PIVY stealth utility class
   const pivy = new PivyStealthAptos();
-  
-  // Initialize Aptos client
-  const config = new AptosConfig({ network: CONFIG.NETWORK });
-  const aptos = new Aptos(config);
-  
-  // Initialize Universal PIVY client for automatic token detection
-  const pivyUniversal = new PIVYUniversalClient(aptos, CONFIG);
 
   // Load Ed25519 user accounts (normal wallets)
   const payerEd25519PrivKey = new Ed25519PrivateKey(CONFIG.PAYER_ED25519_PRIVATE_KEY);
@@ -141,23 +104,14 @@ const pad32 = (u8) => {
   console.log('   🔐 secp256k1 Meta Keys (for stealth crypto):');
   console.log(`      Spend Public: ${metaSpendPubB58}`);
   console.log(`      View Public: ${metaViewPubB58}`);
-  
-  // Universal token detection
-  const assetInfo = pivyUniversal.getAssetTypeInfo(CONFIG.ASSET_TYPE);
-  console.log('   🎯 Asset Detection:');
-  console.log(`      Asset: ${assetInfo.assetType}`);
-  console.log(`      Type: ${assetInfo.detectedAs}`);
-  console.log(`      Functions: ${assetInfo.functionToUse}`);
 
-  // Check Ed25519 account balances  
+  // Initialize Aptos client
+  const config = new AptosConfig({ network: CONFIG.NETWORK });
+  const aptos = new Aptos(config);
+
+  // Check Ed25519 account balances
   const payerBalance = await aptos.getAccountAPTAmount({ accountAddress: payerAddr });
-  console.log(`   💰 Payer APT balance: ${payerBalance} octas (${payerBalance / 100_000_000} APT)`);
-  
-  if (assetInfo.isFungibleAsset) {
-    console.log(`   💡 Note: Paying with ${assetInfo.detectedAs} - stealth will need sponsored withdrawal`);
-  } else {
-    console.log(`   💡 Note: Paying with ${assetInfo.detectedAs} - stealth will have native gas`);
-  }
+  console.log(`   💰 Payer balance: ${payerBalance} octas (${payerBalance / 100_000_000} APT)`);
 
   /*────────────────────────────────────────────────────────────────*/
   /*  Step 2: Ed25519 Payer Uses secp256k1 Crypto for Stealth       */
@@ -182,72 +136,41 @@ const pad32 = (u8) => {
   console.log('   💡 Ed25519 payer successfully used secp256k1 cryptography!');
 
   /*────────────────────────────────────────────────────────────────*/
-  /*  Step 3: Ed25519 Payer Sends Token to Stealth Address         */
+  /*  Step 3: Ed25519 Payer Sends APT to Stealth Address           */
   /*────────────────────────────────────────────────────────────────*/
 
-  console.log(`\\n[Step 3]: Ed25519 payer sends ${assetInfo.detectedAs} to stealth address`);
+  console.log('\\n[Step 3]: Ed25519 payer sends APT to stealth address');
 
   const labelBytes = pad32(toBytes(CONFIG.LABEL_STR));
   const payloadBytes = toBytes(CONFIG.PAYLOAD_STR);
 
-  // Universal payment using smart routing
-  let payRes;
-  if (assetInfo.isFungibleAsset) {
-    console.log('   🔄 Using pay_fa() for FungibleAsset');
-    const payTransaction = await aptos.transaction.build.simple({
-      sender: payerAddr,
-      data: {
-        function: `${CONFIG.PIVY_STEALTH.packageId}::${CONFIG.PIVY_STEALTH.moduleName}::${CONFIG.PIVY_STEALTH.fnPayFa}`,
-        functionArguments: [
-          stealthPub.stealthAptosAddress,      // stealth_owner
-          CONFIG.ASSET_TYPE,                   // fa_metadata
-          CONFIG.PAY_AMOUNT,                   // amount
-          Array.from(labelBytes),              // label
-          Array.from(bs58.decode(ephPubB58)),  // eph_pubkey
-          Array.from(payloadBytes),            // payload
-          Array.from(encryptedNote),           // note
-        ],
-      },
-    });
-    payRes = await aptos.signAndSubmitTransaction({
-      signer: payerEd25519Account,
-      transaction: payTransaction,
-    });
-  } else {
-    console.log('   🔄 Using pay<T>() for CoinType');
-    const payTransaction = await aptos.transaction.build.simple({
-      sender: payerAddr,
-      data: {
-        function: `${CONFIG.PIVY_STEALTH.packageId}::${CONFIG.PIVY_STEALTH.moduleName}::${CONFIG.PIVY_STEALTH.fnPay}`,
-        typeArguments: [CONFIG.ASSET_TYPE],
-        functionArguments: [
-          stealthPub.stealthAptosAddress,      // stealth_owner
-          CONFIG.PAY_AMOUNT,                   // amount
-          Array.from(labelBytes),              // label
-          Array.from(bs58.decode(ephPubB58)),  // eph_pubkey
-          Array.from(payloadBytes),            // payload
-          Array.from(encryptedNote),           // note
-        ],
-      },
-    });
-    payRes = await aptos.signAndSubmitTransaction({
-      signer: payerEd25519Account,
-      transaction: payTransaction,
-    });
-  }
+  // Ed25519 payer sends payment to stealth address
+  const payTransaction = await aptos.transaction.build.simple({
+    sender: payerAddr,
+    data: {
+      function: `${CONFIG.PACKAGE_ID}::${CONFIG.MODULE_NAME}::${CONFIG.FN_PAY}`,
+      typeArguments: [CONFIG.COIN_TYPE],
+      functionArguments: [
+        stealthPub.stealthAptosAddress,      // stealth_owner
+        CONFIG.PAY_AMOUNT_OCTAS,             // amount
+        Array.from(labelBytes),              // label
+        Array.from(bs58.decode(ephPubB58)),  // eph_pubkey
+        Array.from(payloadBytes),            // payload
+        Array.from(encryptedNote),           // note
+      ],
+    },
+  });
+
+  const payRes = await aptos.signAndSubmitTransaction({
+    signer: payerEd25519Account, // Ed25519 account signs the transaction
+    transaction: payTransaction,
+  });
 
   await aptos.waitForTransaction({ transactionHash: payRes.hash });
   
   console.log('   ✅ Payment sent successfully!');
   console.log(`   📋 Transaction: ${payRes.hash}`);
-  console.log(`   💡 Ed25519 account successfully sent ${assetInfo.detectedAs} to stealth address!`);
-  console.log(`   🔧 Function used: ${assetInfo.isFungibleAsset ? 'pay_fa()' : 'pay<T>()'}`);
-  
-  if (assetInfo.isFungibleAsset) {
-    console.log('   💡 Note: Stealth address received FA tokens but 0 APT - will need sponsored withdrawal');
-  } else {
-    console.log('   💡 Note: Stealth address received native coins - can pay own withdrawal gas');
-  }
+  console.log('   💡 Ed25519 account successfully sent to stealth address!');
 
   /*────────────────────────────────────────────────────────────────*/
   /*  Step 4: Receiver Processes Payment (secp256k1 Crypto)        */
@@ -281,87 +204,35 @@ const pad32 = (u8) => {
 
   console.log('\\n[Step 5]: secp256k1 stealth account withdraws to Ed25519 destination');
 
-  // Check stealth APT balance (for gas capability)
+  // Check stealth balance
   const stealthBalance = await aptos.getAccountAPTAmount({
     accountAddress: stealthPub.stealthAptosAddress,
   });
-  console.log(`   💰 Stealth APT balance: ${stealthBalance} octas`);
+  console.log(`   💰 Stealth balance: ${stealthBalance} octas`);
 
-  // Intelligent withdrawal based on token type
-  let withdrawRes;
-  if (assetInfo.isFungibleAsset) {
-    console.log('   🎯 FungibleAsset withdrawal - using sponsored transaction');
-    console.log('   💸 Sponsor pays gas, stealth address signs withdrawal');
-    
-    // Build withdrawal transaction with fee payer
-    const withdrawTransaction = await aptos.transaction.build.simple({
-      sender: stealthPub.stealthAptosAddress,
-      withFeePayer: true, // Enable sponsored transaction
-      data: {
-        function: `${CONFIG.PIVY_STEALTH.packageId}::${CONFIG.PIVY_STEALTH.moduleName}::${CONFIG.PIVY_STEALTH.fnWithdrawFa}`,
-        functionArguments: [
-          CONFIG.ASSET_TYPE,          // fa_metadata
-          CONFIG.WITHDRAW_AMOUNT,     // amount
-          receiverAddr,               // destination
-        ],
-      },
-    });
+  // secp256k1 stealth account withdraws to Ed25519 receiver
+  const withdrawTransaction = await aptos.transaction.build.simple({
+    sender: stealthPub.stealthAptosAddress, // secp256k1 stealth address
+    data: {
+      function: `${CONFIG.PACKAGE_ID}::${CONFIG.MODULE_NAME}::${CONFIG.FN_WITHDRAW}`,
+      typeArguments: [CONFIG.COIN_TYPE],
+      functionArguments: [
+        CONFIG.WITHDRAW_AMOUNT_OCTAS,        // amount
+        receiverAddr,                        // Ed25519 destination!
+      ],
+    },
+  });
 
-    // Sign with stealth address (sender)
-    const senderAuthenticator = aptos.transaction.sign({
-      signer: stealthKP.account, // Stealth address signs
-      transaction: withdrawTransaction,
-    });
-
-    // Sign with receiver sponsor (fee payer)
-    const feePayerAuthenticator = aptos.transaction.signAsFeePayer({
-      signer: payerEd25519Account, // Sponsor pays gas
-      transaction: withdrawTransaction,
-    });
-
-    // Submit transaction with both signatures
-    withdrawRes = await aptos.transaction.submit.simple({
-      transaction: withdrawTransaction,
-      senderAuthenticator: senderAuthenticator,
-      feePayerAuthenticator: feePayerAuthenticator,
-    });
-  } else {
-    console.log('   🎯 CoinType withdrawal - stealth address pays own gas');
-    
-    if (stealthBalance < 10000) { // Less than 0.0001 APT
-      console.log('   ⚠️  Warning: Very low APT balance for gas fees');
-    }
-    
-    const withdrawTransaction = await aptos.transaction.build.simple({
-      sender: stealthPub.stealthAptosAddress,
-      data: {
-        function: `${CONFIG.PIVY_STEALTH.packageId}::${CONFIG.PIVY_STEALTH.moduleName}::${CONFIG.PIVY_STEALTH.fnWithdraw}`,
-        typeArguments: [CONFIG.ASSET_TYPE],
-        functionArguments: [
-          CONFIG.WITHDRAW_AMOUNT,     // amount
-          receiverAddr,               // destination
-        ],
-      },
-    });
-
-    withdrawRes = await aptos.signAndSubmitTransaction({
-      signer: stealthKP.account, // Stealth address signs and pays gas
-      transaction: withdrawTransaction,
-    });
-  }
+  const withdrawRes = await aptos.signAndSubmitTransaction({
+    signer: stealthKP.account, // secp256k1 account signs withdrawal
+    transaction: withdrawTransaction,
+  });
 
   await aptos.waitForTransaction({ transactionHash: withdrawRes.hash });
 
   console.log('   ✅ Withdrawal completed!');
   console.log(`   📋 Transaction: ${withdrawRes.hash}`);
-  console.log(`   💡 secp256k1 stealth → Ed25519 receiver ${assetInfo.detectedAs} transfer successful!`);
-  console.log(`   🔧 Function used: ${assetInfo.isFungibleAsset ? 'withdraw_fa()' : 'withdraw<T>()'}`);
-  
-  if (assetInfo.isFungibleAsset) {
-    console.log('   💸 Gas paid by: Receiver sponsor account (sponsored transaction)');
-  } else {
-    console.log('   💸 Gas paid by: Stealth address (native balance)');
-  }
+  console.log('   💡 secp256k1 stealth → Ed25519 receiver transfer successful!');
 
   /*────────────────────────────────────────────────────────────────*/
   /*  Step 6: Verification and Summary                             */
@@ -373,15 +244,13 @@ const pad32 = (u8) => {
   const finalReceiverBalance = await aptos.getAccountAPTAmount({ accountAddress: receiverAddr });
   console.log(`   💰 Final receiver balance: ${finalReceiverBalance} octas`);
 
-  console.log('\\n🎉 PIVY Universal Stealth Flow Complete!');
+  console.log('\\n🎉 PIVY Hybrid Stealth Flow Complete!');
   console.log('');
-  console.log('✅ Universal Architecture Benefits Demonstrated:');
+  console.log('✅ Hybrid Architecture Benefits Demonstrated:');
   console.log('   💼 Ed25519 accounts for user wallet management');
   console.log('   🔐 secp256k1 cryptography for stealth address math');
-  console.log('   🌟 Universal token support (CoinType + FungibleAsset)');
-  console.log('   🤖 Automatic token detection and smart routing');
-  console.log('   💸 Intelligent gas management (native vs sponsored)');
   console.log('   🔗 Seamless integration between both systems');
+  console.log('   💰 No need to fund additional accounts');
   console.log('   🎯 Perfect address matching and privacy');
   console.log('   🔒 Complete note encryption/decryption');
   console.log('');
@@ -393,21 +262,10 @@ const pad32 = (u8) => {
   console.log(`   Withdrawal TX     : ${withdrawRes.hash}`);
   console.log(`   Private Message   : "${decryptedNote}"`);
   console.log('');
-  console.log('💡 This universal approach is optimal because:');
+  console.log('💡 This hybrid approach is optimal because:');
   console.log('   • Users keep familiar Ed25519 wallets');
   console.log('   • Leverages proven secp256k1 stealth standards');
-  console.log('   • Works with ANY Aptos token (Coin or FungibleAsset)');
-  console.log('   • Automatic detection - no technical knowledge needed');
-  console.log('   • Smart gas handling for different token types');
-  console.log('   • Production-ready for entire Aptos ecosystem');
-  console.log('   • Backend-friendly single interface');
+  console.log('   • No additional account funding needed');
   console.log('   • Clean separation of concerns');
   console.log('   • Maximum compatibility and usability');
-  console.log('');
-  console.log('🎯 Token Support Summary:');
-  console.log(`   Asset Used: ${assetInfo.assetType}`);
-  console.log(`   Detected As: ${assetInfo.detectedAs}`);
-  console.log(`   Payment Function: ${assetInfo.isFungibleAsset ? 'pay_fa()' : 'pay<T>()'}`);
-  console.log(`   Withdrawal Function: ${assetInfo.isFungibleAsset ? 'withdraw_fa()' : 'withdraw<T>()'}`);
-  console.log(`   Gas Strategy: ${assetInfo.isFungibleAsset ? 'Sponsored Transaction' : 'Native Balance'}`);
 })();

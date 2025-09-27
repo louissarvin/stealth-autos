@@ -1,6 +1,6 @@
 # PIVY Stealth Address System for Aptos
 
-A comprehensive privacy-preserving payment system for the Aptos blockchain using secp256k1 stealth address cryptography.
+A comprehensive privacy-preserving payment system for the Aptos blockchain using secp256k1 stealth address cryptography with universal token support.
 
 ## 🎯 Overview
 
@@ -9,206 +9,316 @@ PIVY (Privacy-preserving Payments) enables private cryptocurrency transactions o
 ### Key Features
 
 - 🔐 **Complete Privacy**: Payments appear to random addresses while being fully recoverable by intended recipients
+- 🌟 **Universal Token Support**: Works with both traditional Coins (APT) and modern FungibleAssets (USDC)
+- 🤖 **Auto-Detection**: Automatically detects token type and uses appropriate functions
 - 🔄 **Hybrid Architecture**: Ed25519 user wallets + secp256k1 stealth cryptography for optimal compatibility
-- 🔒 **End-to-End Encryption**: Private notes and ephemeral keys encrypted using ECDH
+- 💸 **Smart Gas Management**: Native balance for Coins, sponsored transactions for FungibleAssets
 - ⚡ **Production Ready**: Full Aptos SDK integration with testnet and mainnet support
 - 🛠️ **Developer Friendly**: Clean API with comprehensive examples and documentation
-- 🔧 **Cross-Platform**: Works in both browser and Node.js environments
 
 ## 📁 Project Structure
 
 ```
 stealth-address/
-├── README.md                           # This documentation
-├── pivyStealthHelpersAptos.js          # Core stealth address library
-├── experimental-aptos.js               # Basic demo and testing
-└── pivy-stealth-full-flow-aptos.js     # Complete production flow demo
+├── README.md                           # This comprehensive documentation
+├── pivyStealthHelpersAptos.js          # Core stealth address cryptography library
+├── pivyUniversalClient.js              # Universal client for auto-detection
+│
+├── 🎯 CORE DEMO FILES (Start Here!)
+├── pivy-stealth-cointype-flow.js       # APT (Coin) demo - native gas payment
+├── pivy-stealth-fungibleasset-flow.js  # USDC (FA) demo - sponsored transactions
+├── pivy-stealth-full-flow-aptos.js     # Universal demo - auto-detection
+│
+├── 📚 Additional Files
+├── experimental-aptos.js               # Basic crypto testing (no blockchain)
+├── pivy-aptos.js                       # Legacy demo file
+├── cctp-stealth-sepolia-aptos.js       # Cross-chain CCTP integration
+│
+├── 📄 Smart Contract ABIs
+├── abis/
+│   ├── Usdc.json                       # USDC token ABI
+│   └── cctp/                           # Circle CCTP protocol ABIs
+│
+└── 🔧 Utilities
+    └── precompiled-move-scripts/        # Pre-compiled Move scripts
 ```
 
-## 🚀 Installation
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - Node.js 16+ 
 - npm or yarn
-- Aptos account with testnet funds (for demos)
+- Aptos account with testnet funds
 
-### Dependencies
+### Installation
 
 ```bash
 npm install @noble/secp256k1 @noble/hashes @aptos-labs/ts-sdk bs58
 ```
 
-### Setup
+### Choose Your Demo
 
-1. Clone or download the stealth address folder
-2. Install dependencies
-3. Configure your Aptos accounts in demo files (if running demos)
+Pick the demo that matches your use case:
 
-## 📖 Quick Start
+#### 1. 🪙 APT (CoinType) Demo - Native Gas
+**File**: `pivy-stealth-cointype-flow.js`
+- Stealth address receives APT and can pay its own gas
+- Uses `pay<T>()` and `withdraw<T>()` functions
+- Best for: APT payments, gas-rich tokens
 
-### Basic Usage
+#### 2. 💰 USDC (FungibleAsset) Demo - Sponsored Gas
+**File**: `pivy-stealth-fungibleasset-flow.js`
+- Stealth address receives USDC but has 0 APT for gas
+- Uses `pay_fa()` and `withdraw_fa()` functions
+- Requires sponsored transaction for withdrawal
+- Best for: USDC payments, gas-less tokens
+
+#### 3. 🌟 Universal Demo - Auto-Detection
+**File**: `pivy-stealth-full-flow-aptos.js`
+- Automatically detects token type and uses correct functions
+- Smart gas management based on token type
+- Single interface for all tokens
+- Best for: Production applications, multi-token support
+
+## 🔧 Configuration & Setup
+
+### Step 1: Fund Your Accounts
+
+1. Get testnet APT from [Aptos Faucet](https://aptoslabs.com/testnet-faucet)
+2. For USDC demo, also get testnet USDC
+
+### Step 2: Configure Private Keys
+
+Edit the CONFIG section in your chosen demo file:
+
+```javascript
+const CONFIG = {
+  // Replace with your actual private keys
+  PAYER_ED25519_PRIVATE_KEY: "0xYourPayerPrivateKey",
+  RECEIVER_ED25519_PRIVATE_KEY: "0xYourReceiverPrivateKey",
+  
+  // For Universal demo, choose your token:
+  // APT (CoinType):
+  // ASSET_TYPE: '0x1::aptos_coin::AptosCoin',
+  
+  // USDC (FungibleAsset):
+  ASSET_TYPE: '0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832',
+};
+```
+
+### Step 3: Run Your Chosen Demo
+
+```bash
+# APT Demo (native gas)
+node pivy-stealth-cointype-flow.js
+
+# USDC Demo (sponsored gas)
+node pivy-stealth-fungibleasset-flow.js
+
+# Universal Demo (auto-detection)
+node pivy-stealth-full-flow-aptos.js
+```
+
+## 📖 Detailed Demo Guides
+
+### 🪙 APT (CoinType) Demo
+
+**File**: `pivy-stealth-cointype-flow.js`
+
+**What it demonstrates**:
+- Ed25519 payer sends APT to stealth address
+- Stealth address receives APT (native gas token)
+- Stealth address can pay its own withdrawal gas
+- Uses traditional Coin functions with type arguments
+
+**Flow Summary**:
+```
+Ed25519 Payer → [APT] → secp256k1 Stealth → [APT] → Ed25519 Receiver
+                ↑                           ↑
+            pay<T>()                 withdraw<T>()
+         (with type args)           (self-paid gas)
+```
+
+**Key Features**:
+- ✅ Native gas token (APT) enables self-paid transactions
+- ✅ Traditional Coin standard compatibility
+- ✅ Type arguments for compile-time safety
+- ✅ No sponsor needed for withdrawal
+
+**Configuration**:
+```javascript
+COIN_TYPE: '0x1::aptos_coin::AptosCoin',
+PAY_AMOUNT_OCTAS: 100_000_000n, // 1 APT
+WITHDRAW_AMOUNT_OCTAS: 50_000_000n, // 0.5 APT
+```
+
+### 💰 USDC (FungibleAsset) Demo
+
+**File**: `pivy-stealth-fungibleasset-flow.js`
+
+**What it demonstrates**:
+- Ed25519 payer sends USDC to stealth address
+- Stealth address receives USDC but 0 APT for gas
+- Sponsor account pays gas for stealth address withdrawal
+- Uses modern FungibleAsset functions without type arguments
+
+**Flow Summary**:
+```
+Ed25519 Payer → [USDC] → secp256k1 Stealth → [USDC] → Ed25519 Receiver
+                ↑                             ↑
+           pay_fa()                    withdraw_fa()
+        (no type args)              (sponsor pays gas)
+```
+
+**Key Features**:
+- ✅ Modern FungibleAsset standard (USDC, WETH, etc.)
+- ✅ No type arguments needed
+- ✅ Sponsored transaction pattern
+- ✅ Gas-less withdrawal for stealth address
+
+**Configuration**:
+```javascript
+ASSET_TYPE: '0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832', // USDC
+PAY_AMOUNT: 1000000n, // 1 USDC (6 decimals)
+WITHDRAW_AMOUNT: 1000000n, // 1 USDC
+```
+
+**Sponsored Transaction Pattern**:
+```javascript
+// 1. Build transaction with fee payer
+const transaction = await aptos.transaction.build.simple({
+  sender: stealthAddress,
+  withFeePayer: true, // Enable sponsored transaction
+  data: { /* withdrawal function */ }
+});
+
+// 2. Stealth address signs transaction
+const senderAuth = aptos.transaction.sign({
+  signer: stealthAccount,
+  transaction
+});
+
+// 3. Sponsor signs as fee payer
+const feePayerAuth = aptos.transaction.signAsFeePayer({
+  signer: sponsorAccount,
+  transaction
+});
+
+// 4. Submit with both signatures
+const result = await aptos.transaction.submit.simple({
+  transaction,
+  senderAuthenticator: senderAuth,
+  feePayerAuthenticator: feePayerAuth
+});
+```
+
+### 🌟 Universal Demo (Recommended)
+
+**File**: `pivy-stealth-full-flow-aptos.js`
+
+**What it demonstrates**:
+- Automatic token type detection (Coin vs FungibleAsset)
+- Smart routing to appropriate functions
+- Intelligent gas management based on token type
+- Single codebase for all token types
+
+**Flow Summary**:
+```
+Ed25519 Payer → [ANY TOKEN] → secp256k1 Stealth → [ANY TOKEN] → Ed25519 Receiver
+                ↑                                   ↑
+        Auto-Detection                     Smart Gas Management
+     (pay<T> or pay_fa)                (native or sponsored)
+```
+
+**Key Features**:
+- 🤖 **Auto-Detection**: Automatically detects Coin vs FungibleAsset
+- 🧠 **Smart Routing**: Uses correct functions (`pay<T>` vs `pay_fa`)
+- 💸 **Intelligent Gas**: Native for Coins, sponsored for FAs
+- 🔧 **Single Interface**: One codebase for all tokens
+- 📊 **Debug Info**: Shows detection results and function choices
+
+**Auto-Detection Logic**:
+```javascript
+// Detects based on asset type format
+isFungibleAsset(assetType) {
+  // FungibleAssets: 0x[64 hex chars] (Object addresses)
+  // Coins: 0xaddress::module::CoinType
+  return /^0x[0-9a-f]{64}$/i.test(assetType);
+}
+```
+
+**Configuration**:
+```javascript
+// Switch between tokens by changing ASSET_TYPE:
+
+// APT (Coin) - stealth gets native gas
+ASSET_TYPE: '0x1::aptos_coin::AptosCoin',
+PAY_AMOUNT: 100_000_000n, // 1 APT
+
+// USDC (FungibleAsset) - stealth needs sponsored withdrawal  
+ASSET_TYPE: '0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832',
+PAY_AMOUNT: 1000000n, // 1 USDC
+```
+
+## 🔍 PIVYUniversalClient
+
+The universal client provides automatic token detection and smart routing:
+
+```javascript
+import { PIVYUniversalClient } from './pivyUniversalClient.js';
+
+const pivyUniversal = new PIVYUniversalClient(aptos, CONFIG);
+
+// Automatic detection
+const assetInfo = pivyUniversal.getAssetTypeInfo(CONFIG.ASSET_TYPE);
+console.log('Detected as:', assetInfo.detectedAs); // "Coin" or "Fungible Asset"
+console.log('Function to use:', assetInfo.functionToUse); // "pay<T>" or "pay_fa"
+console.log('Is FungibleAsset:', assetInfo.isFungibleAsset); // true/false
+```
+
+## 🔐 Core Cryptography Library
+
+### PivyStealthAptos Class
+
+The core library (`pivyStealthHelpersAptos.js`) provides all cryptographic operations:
 
 ```javascript
 import PivyStealthAptos from './pivyStealthHelpersAptos.js';
 
-// Initialize the library
 const pivy = new PivyStealthAptos();
 
-// 1. Receiver: Generate meta keys (one-time setup)
+// 1. Generate receiver's meta keys (one-time setup)
 const metaKeys = pivy.generateMetaKeys();
-console.log('Share these public keys:', {
-  spend: metaKeys.metaSpendPubB58,
-  view: metaKeys.metaViewPubB58
-});
 
-// 2. Payer: Create stealth payment
+// 2. Payer generates ephemeral key for payment
 const ephemeral = pivy.generateEphemeralKey();
+
+// 3. Payer derives stealth address (PUBLIC KEYS ONLY!)
 const stealthInfo = await pivy.deriveStealthPub(
   metaKeys.metaSpendPubB58,
   metaKeys.metaViewPubB58,
   ephemeral.privateKey
 );
 
-console.log('Send funds to:', stealthInfo.stealthAptosAddress);
-
-// 3. Receiver: Recover stealth keypair
+// 4. Receiver recovers stealth keypair
 const stealthKP = await pivy.deriveStealthKeypair(
   metaKeys.metaSpend.privateKey.toUint8Array(),
   metaKeys.metaView.privateKey.toUint8Array(),
   ephemeral.publicKeyB58
 );
-
-console.log('Recovered address:', stealthKP.stealthAddress);
 ```
 
-### Running Demos
+### Security Model
 
-#### Basic Demo
-```bash
-node experimental-aptos.js
-```
+**Key Security Properties**:
+- ✅ Payer only uses receiver's PUBLIC keys (no private key sharing!)
+- ✅ Only receiver can derive stealth private key
+- ✅ Each payment uses fresh ephemeral keys
+- ✅ Private notes encrypted end-to-end
+- ✅ Forward secrecy with ephemeral keys
 
-#### Full Production Flow
-```bash
-# Configure your private keys in the CONFIG section first
-node pivy-stealth-full-flow-aptos.js
-```
-
-## 🔧 API Documentation
-
-### Core Class: `PivyStealthAptos`
-
-#### Key Generation
-
-##### `generateMetaKeys()`
-Generates receiver's meta keypair (spend + view keys).
-
-```javascript
-const metaKeys = pivy.generateMetaKeys();
-// Returns: { metaSpend, metaView, metaSpendPubB58, metaViewPubB58 }
-```
-
-##### `generateEphemeralKey()`
-Generates payer's ephemeral keypair for a specific payment.
-
-```javascript
-const ephemeral = pivy.generateEphemeralKey();
-// Returns: { account, privateKey, publicKeyB58 }
-```
-
-#### Stealth Address Operations
-
-##### `deriveStealthPub(metaSpendPubB58, metaViewPubB58, ephPriv32, metaSpendPriv?)`
-**Payer side**: Generates stealth address from receiver's public keys.
-
-```javascript
-const stealthInfo = await pivy.deriveStealthPub(
-  receiverSpendPub,
-  receiverViewPub,
-  ephemeralPrivateKey
-);
-// Returns: { stealthPubKeyB58, stealthAptosAddress, stealthPubKeyBytes }
-```
-
-##### `deriveStealthKeypair(metaSpendPriv, metaViewPriv, ephPub)`
-**Receiver side**: Recovers stealth private key and creates usable account.
-
-```javascript
-const stealthKP = await pivy.deriveStealthKeypair(
-  metaSpendPrivateKey,
-  metaViewPrivateKey,
-  ephemeralPublicKey
-);
-// Returns: { account, stealthAddress, privateKey, toAptosAddress(), publicKeyBase58() }
-```
-
-#### Encryption/Decryption
-
-##### `encryptEphemeralPrivKey(ephPriv32, metaViewPub)`
-Encrypts ephemeral private key for secure transmission to receiver.
-
-```javascript
-const encrypted = await pivy.encryptEphemeralPrivKey(ephPriv, receiverViewPub);
-// Returns: Base58-encoded encrypted payload
-```
-
-##### `decryptEphemeralPrivKey(encodedPayload, metaViewPriv, ephPub)`
-Decrypts ephemeral private key (receiver side).
-
-```javascript
-const decrypted = await pivy.decryptEphemeralPrivKey(
-  encryptedPayload,
-  metaViewPrivateKey,
-  ephemeralPublicKey
-);
-// Returns: 32-byte ephemeral private key
-```
-
-##### `encryptNote(plaintext, ephPriv32, metaViewPub)`
-Encrypts private note for receiver.
-
-```javascript
-const encryptedNote = await pivy.encryptNote(
-  "Secret message!",
-  ephemeralPrivateKey,
-  receiverViewPub
-);
-// Returns: Encrypted note bytes
-```
-
-##### `decryptNote(encryptedBytes, metaViewPriv, ephPub)`
-Decrypts private note (receiver side).
-
-```javascript
-const message = await pivy.decryptNote(
-  encryptedBytes,
-  metaViewPrivateKey,
-  ephemeralPublicKey
-);
-// Returns: Decrypted UTF-8 string
-```
-
-#### Utility Functions
-
-##### `validateStealthMatch(payerAddress, receiverAddress)`
-Validates that payer and receiver derived the same stealth address.
-
-```javascript
-const isValid = pivy.validateStealthMatch(
-  payerDerivedAddress,
-  receiverDerivedAddress
-);
-// Returns: boolean
-```
-
-## 🏗️ Technical Architecture
-
-### Stealth Address Cryptography
-
-The system uses **secp256k1 elliptic curve cryptography** with the following mathematical foundation:
-
-#### Key Derivation
+**Cryptographic Foundation**:
 ```
 StealthPublicKey = MetaSpendPublicKey + (tweak × G)
 StealthPrivateKey = MetaSpendPrivateKey + tweak (mod n)
@@ -219,174 +329,190 @@ Where:
 - n = secp256k1 curve order
 ```
 
-#### Encryption
-- **Key Agreement**: ECDH between ephemeral private key and meta view public key
-- **Encryption**: XOR with SHA256 of shared secret
-- **Authentication**: Public key verification for integrity
+## 🎮 Smart Contract Integration
 
-### Hybrid Architecture
+The demos work with the deployed PIVY stealth contract:
 
-The system leverages a **hybrid approach** combining:
-
-1. **Ed25519 Accounts**: User's normal wallets for account management
-2. **secp256k1 Cryptography**: Stealth address mathematics and encryption
-3. **Aptos SDK Integration**: Native compatibility with Aptos transaction system
-
-### Security Model
-
-#### Privacy Guarantees
-- **Unlinkability**: Each payment appears to a different random address
-- **Forward Secrecy**: Ephemeral keys ensure past transactions remain private
-- **Metadata Protection**: Private notes encrypted end-to-end
-
-#### Security Assumptions
-- **Elliptic Curve Discrete Log**: Foundation of secp256k1 security
-- **Hash Function Security**: SHA256 and SHA3-256 for key derivation
-- **Implementation Security**: Uses audited @noble cryptographic libraries
-
-## 🎮 Demo Scripts
-
-### `experimental-aptos.js`
-**Purpose**: Basic stealth address demonstration and testing
-
-**Features**:
-- Meta key generation
-- Stealth address derivation
-- Encryption/decryption testing
-- Address validation
-- Aptos wallet compatibility test
-
-**Usage**:
-```bash
-node experimental-aptos.js
-```
-
-### `pivy-stealth-full-flow-aptos.js`
-**Purpose**: Complete production workflow demonstration
-
-**Features**:
-- Real Aptos testnet integration
-- Ed25519 → secp256k1 → Ed25519 flow
-- Actual payment transactions
-- Stealth address withdrawal
-- Balance verification
-
-**Configuration**:
 ```javascript
-const CONFIG = {
-  NETWORK: Network.TESTNET,
-  PAYER_ED25519_PRIVATE_KEY: "0xYourPrivateKey1...",
-  RECEIVER_ED25519_PRIVATE_KEY: "0xYourPrivateKey2...",
-  PACKAGE_ID: "0xc0d64666b049e1412b7bcd74d0d20b34a10d12f76555843be78f1bb5bd126ee1",
-  // ... other settings
+const PIVY_CONTRACT = {
+  packageId: '0xc0d64666b049e1412b7bcd74d0d20b34a10d12f76555843be78f1bb5bd126ee1',
+  moduleName: 'pivy_stealth',
+  
+  // Coin functions (with type arguments)
+  functions: {
+    pay: 'pay<T>',           // Pay with Coin
+    withdraw: 'withdraw<T>'   // Withdraw Coin
+  },
+  
+  // FungibleAsset functions (no type arguments) 
+  faFunctions: {
+    payFa: 'pay_fa',         // Pay with FungibleAsset
+    withdrawFa: 'withdraw_fa' // Withdraw FungibleAsset
+  }
 };
 ```
 
-**Usage**:
-1. Fund your Ed25519 accounts with testnet APT
-2. Update private keys in CONFIG
-3. Run: `node pivy-stealth-full-flow-aptos.js`
+## 💡 Use Cases
 
-## 🔍 Use Cases
+### 1. Private Payroll
+- Employer pays employees privately using stealth addresses
+- Employee salaries remain confidential
+- Works with any token (APT, USDC, custom tokens)
 
-### Private Payments
-Send payments without revealing recipient's identity or linking to previous transactions.
+### 2. Anonymous Donations
+- Accept donations without revealing donor or recipient identity
+- Each donation appears to different random address
+- Private notes for donor messages
 
-### Payroll Privacy
-Employers can pay employees privately without exposing salary information.
+### 3. Private DEX Settlements
+- Trade settlements to stealth addresses
+- Prevent front-running and MEV
+- Enhanced trading privacy
 
-### Donation Systems
-Accept donations while maintaining donor and recipient privacy.
+### 4. Multi-Token Payments
+- Universal interface supports all Aptos tokens
+- Automatic detection eliminates technical complexity
+- Consistent UX across different token types
 
-### DEX Privacy
-Trade privately by using stealth addresses for order settlements.
+## 🔧 Development Guide
 
-### Multi-Party Transactions
-Coordinate private payments in complex financial arrangements.
+### Testing Locally
 
-## 🚨 Security Considerations
-
-### Best Practices
-- **Key Management**: Store meta private keys securely and never share them
-- **Ephemeral Keys**: Generate fresh ephemeral keys for each payment
-- **Network Security**: Use HTTPS/WSS for all communications
-- **Validation**: Always validate stealth address derivation matches
-
-### Known Limitations
-- **Gas Costs**: Each stealth payment requires on-chain transaction
-- **Scanning**: Receivers must scan for payments (not implemented in demos)
-- **Metadata Leakage**: Transaction timing and amounts still visible
-- **Key Recovery**: Lost meta private keys = permanent fund loss
-
-## 🛠️ Development
-
-### Testing
 ```bash
-# Run basic functionality test
+# Clone the repository
+git clone <repository-url>
+cd stealth-address
+
+# Install dependencies
+npm install @noble/secp256k1 @noble/hashes @aptos-labs/ts-sdk bs58
+
+# Configure your keys in demo files
+# Run basic cryptography test (no blockchain)
 node experimental-aptos.js
 
-# Run full integration test (requires funded accounts)
+# Run APT demo (requires funded account)
+node pivy-stealth-cointype-flow.js
+
+# Run USDC demo (requires USDC tokens)
+node pivy-stealth-fungibleasset-flow.js
+
+# Run universal demo (works with any token)
 node pivy-stealth-full-flow-aptos.js
 ```
 
-### Integration
+### Integration into Your App
+
 ```javascript
 // ES6 Modules
 import PivyStealthAptos from './pivyStealthHelpersAptos.js';
+import { PIVYUniversalClient } from './pivyUniversalClient.js';
 
-// CommonJS (if using require)
-const PivyStealthAptos = require('./pivyStealthHelpersAptos.js');
+// Initialize
+const pivy = new PivyStealthAptos();
+const pivyUniversal = new PIVYUniversalClient(aptosClient, config);
 
-// Static methods (legacy compatibility)
-import { deriveStealthPub, encryptNote } from './pivyStealthHelpersAptos.js';
+// Use in your payment flow
+const stealthPayment = await createStealthPayment(
+  receiverMetaKeys,
+  assetType,
+  amount
+);
 ```
 
 ### Browser Compatibility
-The library works in browsers with modern ES6+ support. Ensure you have:
-- WebCrypto API support
+
+The library works in modern browsers:
+- WebCrypto API support required
 - ES6 module support
-- Proper CORS configuration for API calls
+- No additional polyfills needed
 
 ## 🐛 Troubleshooting
 
 ### Common Issues
 
-#### "Unsupported key format"
-**Cause**: Invalid key format passed to `to32u8()`
-**Solution**: Ensure keys are 64-char hex strings, Base58, or Uint8Array
+#### ❌ "Account not found"
+**Cause**: Account not funded or doesn't exist
+**Solution**: Fund accounts with testnet APT from [faucet](https://aptoslabs.com/testnet-faucet)
 
-#### "Decryption failed – ephemeral public key mismatch"
-**Cause**: Wrong ephemeral public key used for decryption
-**Solution**: Verify ephemeral public key matches the one used for encryption
-
-#### "Account not found" (in full demo)
-**Cause**: Account not funded or doesn't exist on network
-**Solution**: Fund accounts with testnet/mainnet APT tokens
-
-#### Address mismatch between payer and receiver
+#### ❌ "Address mismatch between payer and receiver"
 **Cause**: Different inputs used for stealth derivation
 **Solution**: Ensure exact same meta keys and ephemeral key used by both parties
 
+#### ❌ "Insufficient funds for gas"
+**For CoinType**: Ensure stealth address has enough APT for gas
+**For FungibleAsset**: Use sponsored transaction pattern
+
+#### ❌ "Function not found" or "Type argument mismatch"
+**Cause**: Wrong function used for token type
+**Solution**: Use Universal demo for automatic detection
+
 ### Debug Mode
-Enable detailed logging by modifying the demo scripts:
+
+Enable detailed logging in demos:
+
 ```javascript
-console.log('Debug - Ephemeral private key:', Buffer.from(ephPriv).toString('hex'));
-console.log('Debug - Shared secret:', Buffer.from(shared).toString('hex'));
-console.log('Debug - Tweak:', Buffer.from(tweak).toString('hex'));
+// Add to demo files for debugging
+console.log('🔍 Debug Info:');
+console.log('Asset Type:', CONFIG.ASSET_TYPE);
+console.log('Detected As:', assetInfo.detectedAs);
+console.log('Function Used:', assetInfo.functionToUse);
+console.log('Is FungibleAsset:', assetInfo.isFungibleAsset);
 ```
 
-## 📚 Further Reading
+### Network Issues
 
-- [Stealth Addresses Specification](https://github.com/grin-tech/grin-rfcs/blob/master/text/0006-stealth-addresses.md)
-- [Aptos Developer Documentation](https://aptos.dev/)
-- [secp256k1 Cryptography](https://en.bitcoin.it/wiki/Secp256k1)
-- [ECDH Key Agreement](https://tools.ietf.org/html/rfc3526)
+If transactions fail:
+1. Check network status (testnet may be down)
+2. Verify account balances
+3. Ensure correct contract addresses
+4. Try with smaller amounts
+
+## 🔒 Security Best Practices
+
+### Key Management
+- ✅ Store meta private keys securely
+- ✅ Never share private keys
+- ✅ Generate fresh ephemeral keys for each payment
+- ✅ Use hardware wallets for production
+
+### Transaction Security
+- ✅ Always validate stealth address derivation
+- ✅ Verify encrypted data integrity
+- ✅ Use HTTPS for all network communications
+- ✅ Implement proper error handling
+
+### Privacy Considerations
+- ✅ Use different stealth addresses for each payment
+- ✅ Avoid timing correlations
+- ✅ Consider amount privacy (use standard amounts)
+- ✅ Implement proper scanning mechanisms
+
+## 📚 Token Support Reference
+
+### Supported Token Types
+
+| Token Type | Examples | Functions | Type Args | Gas Strategy |
+|------------|----------|-----------|-----------|--------------|
+| **Coin** | APT, Custom Coins | `pay<T>`, `withdraw<T>` | Required | Native Balance |
+| **FungibleAsset** | USDC, WETH | `pay_fa`, `withdraw_fa` | None | Sponsored Transaction |
+
+### Token Identification
+
+```javascript
+// Coin format (traditional)
+'0x1::aptos_coin::AptosCoin'
+'0xabc123::my_coin::MyCoin'
+
+// FungibleAsset format (modern)
+'0x69091fbab5f7d635ee7ac5098cf0c1efbe31d68fec0f2cd565e8d168daf52832' // USDC
+'0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' // Other FA
+```
 
 ## 🤝 Contributing
 
 1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
+2. Create a feature branch: `git checkout -b feature/new-demo`
+3. Add comprehensive tests
 4. Ensure all demos pass
 5. Submit a pull request
 
@@ -394,12 +520,32 @@ console.log('Debug - Tweak:', Buffer.from(tweak).toString('hex'));
 
 This project is provided as-is for educational and research purposes. Please review and test thoroughly before using in production environments.
 
-## ⚠️ Disclaimer
+## ⚠️ Security Disclaimer
 
 This software is experimental and has not undergone formal security audits. Use at your own risk. The authors are not responsible for any loss of funds or privacy breaches resulting from the use of this software.
 
 ---
 
-**Built with ❤️ by the PIVY Team**
+## 🎯 Quick Reference
 
-For support and questions, please open an issue in the repository.
+### Demo Files Priority
+1. **Start Here**: `pivy-stealth-full-flow-aptos.js` (Universal)
+2. **APT Focus**: `pivy-stealth-cointype-flow.js` (CoinType)  
+3. **USDC Focus**: `pivy-stealth-fungibleasset-flow.js` (FungibleAsset)
+
+### Key Files
+- **Core Library**: `pivyStealthHelpersAptos.js`
+- **Universal Client**: `pivyUniversalClient.js`
+- **Basic Testing**: `experimental-aptos.js`
+
+### Configuration
+- Update private keys in CONFIG section
+- Choose token type (Coin vs FungibleAsset)
+- Ensure sufficient balances for testing
+
+### Getting Help
+- Check troubleshooting section above
+- Review demo file comments
+- Test with `experimental-aptos.js` first (no blockchain required)
+
+**Built with ❤️ by the PIVY Team**
